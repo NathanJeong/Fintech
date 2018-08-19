@@ -1,22 +1,23 @@
 import sys
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
+from PyQt5.QtGui import  *
 from PyQt5.QAxContainer import *
 
 class MyWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PyStock")
-        self.setGeometry(300, 300, 300, 150)
 
+        # Kiwoom Login
         self.kiwoom = QAxWidget("KHOPENAPI.KHOpenAPICtrl.1")
         self.kiwoom.dynamicCall("CommConnect()")
 
-        self.kiwoom.OnEventConnect.connect(self.OnEventConnect)
-        self.kiwoom.OnReceiveTrData.connect(self.OnReceiveTrData)
-        self.setupUI()
+        # OpenAPI+ Event
+        self.kiwoom.OnEventConnect.connect(self.event_connect)
+        self.kiwoom.OnReceiveTrData.connect(self.receive_trdata)
 
-    def setupUI(self):
+        self.setWindowTitle("PyStock")
+        self.setGeometry(300, 300, 300, 150)
+
         label = QLabel('종목코드: ', self)
         label.move(20, 20)
 
@@ -32,26 +33,30 @@ class MyWindow(QMainWindow):
         self.text_edit.setGeometry(10, 60, 280, 80)
         self.text_edit.setEnabled(False)
 
+    def event_connect(self, err_code):
+        if err_code == 0:
+            self.text_edit.append("로그인 성공")
+
     def btn1_clicked(self):
         code = self.code_edit.text()
         self.text_edit.append("종목코드: " + code)
+
+        # SetInputValue
         self.kiwoom.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
-        self.kiwoom.dynamicCall("CommRqData(QString, QString, int, QString)", "Request1", "opt10001", 0, "0101")
 
-    def OnEventConnect(self, ErrCode):
-        if ErrCode == 0:
-            self.text_edit.append("로그인 성공")
+        # CommRqData
+        self.kiwoom.dynamicCall("CommRqData(QString, QString, int, QString)", "opt10001_req", "opt10001", 0, "0101")
 
-    def OnReceiveTrData(self, ScrNo, RQName, TrCode, RecordName, PrevNext, DataLength, ErrorCode, Message, SplmMsg):
-        if RQName == "Request1":
-            name = self.kiwoom.dynamicCall("CommGetData(QString, QString, QString, int, QString)", TrCode, "", RQName, 0, "종목명")
-            volume = self.kiwoom.dynamicCall("CommGetData(QString, QString, QString, int, QString)", TrCode, "", RQName, 0, "PER")
+    def receive_trdata(self, screen_no, rqname, trcode, recordname, prev_next, data_len, err_code, msg1, msg2):
+        if rqname == "opt10001_req":
+            name = self.kiwoom.dynamicCall("CommGetData(QString, QString, QString, int, QString)", trcode, "", rqname, 0, "종목명")
+            volume = self.kiwoom.dynamicCall("CommGetData(QString, QString, QString, int, QString)", trcode, "", rqname, 0, "거래량")
 
             self.text_edit.append("종목명: " + name.strip())
             self.text_edit.append("거래량: " + volume.strip())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    mywindow = MyWindow()
-    mywindow.show()
+    myWindow = MyWindow()
+    myWindow.show()
     app.exec_()
